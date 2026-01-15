@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 11pt; }
+    h1 { font-size: 18pt; margin-bottom: 6mm; }
+    h2 { font-size: 14pt; margin: 4mm 0 2mm; }
+    .meta { margin-bottom: 8mm; }
+    .sys { margin: 6mm 0 4mm; }
+    .task { margin: 1.5mm 0; }
+    .muted { color: #777; }
+    .badge { display:inline-block; padding:1px 6px; border-radius: 10px; border:1px solid #bbb; font-size:9pt; }
+  </style>
+</head>
+<body>
+
+<!-- Seite 1 -->
+<h1>Wartungsreport</h1>
+<div class="meta">
+  <img src="{{customer.logo_url}}" height="40" alt="Logo"><br>
+  <strong>{{customer.name}}</strong><br>
+  {{customer.street}}<br>
+  {{customer.zip}} {{customer.city}}<br>
+  <br>
+  <span class="muted">Erstellt am:</span> {{report.date}}<br>
+  <span class="muted">Erstellt von:</span> {{report.user}}
+</div>
+
+<pagebreak />
+
+<!-- Seiten 2..n -->
+{{systems_block}}
+
+</body>
+</html>

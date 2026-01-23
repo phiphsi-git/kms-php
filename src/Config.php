@@ -2,16 +2,29 @@
 namespace App;
 
 class Config {
-  public const DB_HOST    = '127.0.0.1';   // WICHTIG: NICHT 'localhost'
-  public const DB_PORT    = 3307;          // MariaDB 10 Standard auf QNAP
-  public const DB_NAME    = 'kms';
-  public const DB_USER    = 'kms_app';
-  public const DB_PASS    = 'Bernauer+8712';
-  public const DB_CHARSET = 'utf8mb4';
+    private static array $env = [];
 
-  public const APP_NAME     = 'KMS - Ph. Brandenberger';
-  public const BASE_URL     = '/';
-  public const SESSION_NAME = 'kms_session';
-  
-  public const STORAGE_DIR = '/share/CACHEDEV1_DATA/Web/kms-php/storage/'; // Kundendaten Ablage, anpassen falls nötig
+    public static function load(): void {
+        $path = __DIR__ . '/../.env';
+        if (file_exists($path)) {
+            static::$env = parse_ini_file($path);
+        }
+    }
+
+    public static function get(string $key, $default = null) {
+        return self::$env[$key] ?? $default;
+    }
+
+    // Grundlegende App-Einstellungen
+    public const APP_NAME = 'KMS - Ph. Brandenberger';
+    public const SESSION_NAME = 'kms_session';
+    public const DB_CHARSET = 'utf8mb4';
+    
+    // Die vom Layout benötigte Konstante
+    public const BASE_URL = '/'; 
+
+    // Dynamischer Pfad für das QNAP Filesystem
+    public static function storageDir(): string {
+        return self::get('STORAGE_DIR', '/share/CACHEDEV1_DATA/Web/kms-php/storage/');
+    }
 }

@@ -14,6 +14,10 @@ ini_set('error_log', __DIR__ . '/../error.log');  // Log nach /kms-php/error.log
 error_reporting(E_ALL);
 
 require_once __DIR__.'/../src/Config.php';
+
+// Ganz wichtig: Zuerst laden! 
+\App\Config::load();
+
 require_once __DIR__.'/../src/DB.php';
 require_once __DIR__.'/../src/PasswordPolicy.php';
 require_once __DIR__.'/../src/Csrf.php';
@@ -29,10 +33,8 @@ require_once __DIR__.'/../src/FileRepo.php';
 require_once __DIR__.'/../src/TaskCheckpointRepo.php';
 require_once __DIR__.'/../src/TaskStatusLogRepo.php';
 
-
-
-
-Auth::start();
+// Dann erst Auth und Logik
+\App\Auth::start();
 
 // Flash helper
 function flash_take(): array {

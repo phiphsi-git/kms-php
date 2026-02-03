@@ -10,7 +10,7 @@ use App\UserRepo;
 use App\PasswordPolicy;
 
 // Direktanzeige von Fehlern erzwingen (nur zum Debuggen!)
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
 ini_set('display_startup_errors', '1');
 ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/../error.log');
@@ -28,6 +28,7 @@ require_once __DIR__.'/../src/UserRepo.php';
 require_once __DIR__.'/../src/Auth.php';
 require_once __DIR__.'/../src/Middleware.php';
 require_once __DIR__.'/../src/Policy.php';
+require_once __DIR__.'/../src/ReportPdf.php';
 
 // --- KORREKTUR: TCPDF HIER LADEN (VOR DEN REPOSITORIES) ---
 // Wir suchen an allen möglichen Orten, damit es sicher gefunden wird

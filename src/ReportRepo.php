@@ -9,6 +9,7 @@ use DateTimeImmutable;
 // --------------------------------------------------------------------------------------
 if (!class_exists('\TCPDF')) {
     $possiblePaths = [
+		__DIR__ . '/../vendor/tcpdf_min/tcpdf.php',
         __DIR__ . '/../tcpdf.php',                  
         __DIR__ . '/../../tcpdf.php',               
         __DIR__ . '/../src/tcpdf.php',
@@ -23,10 +24,11 @@ if (!class_exists('\TCPDF')) {
 // --------------------------------------------------------------------------------------
 // 2. PDF KLASSE DEFINIEREN (Nur wenn TCPDF erfolgreich geladen wurde)
 // --------------------------------------------------------------------------------------
+/**
 if (class_exists('\TCPDF')) {
     /**
      * Erweiterte PDF-Klasse für Kopf- und Fußzeilen (Bernauer AG Design)
-     */
+     
     class ReportPDF extends \TCPDF {
         public $headerLogoPath = '';
         public $headerAddress  = '';
@@ -61,6 +63,7 @@ if (class_exists('\TCPDF')) {
         }
     }
 }
+*/
 
 class ReportRepo {
 
@@ -84,7 +87,7 @@ class ReportRepo {
      */
     public static function generateCustomerReport(int $customerId, int $userId, DateTimeImmutable $reportDate, DateTimeImmutable $from, DateTimeImmutable $to, string $comment, array $files): array {
         // SICHERHEITSCHECK: TCPDF MUSS DA SEIN
-        if (!class_exists('\TCPDF') || !class_exists('App\ReportPDF')) {
+        if (!class_exists('\TCPDF') || !class_exists('App\ReportPdf')) {
             return ['ok' => false, 'errors' => ['Systemfehler: Die TCPDF-Bibliothek wurde nicht gefunden. Bitte prüfen Sie, ob tcpdf.php im Hauptverzeichnis oder in src liegt.']];
         }
 
@@ -165,43 +168,45 @@ class ReportRepo {
             $pdf->SetFooterMargin(15);
             $pdf->SetAutoPageBreak(TRUE, 25);
 
-            // ==========================================
-            // SEITE 1: DECKBLATT
-            // ==========================================
-            $pdf->AddPage();
-            
-            // Titel "Wartungsbericht"
-            $pdf->SetFont('helvetica', 'B', 24);
-            $pdf->SetTextColor(0, 0, 0);
-            $pdf->Cell(0, 15, 'Wartungsbericht', 0, 1, 'L');
-            
-            $pdf->Ln(10); // Abstand
+			// ==========================================
+			// SEITE 1: DECKBLATT
+			// ==========================================
+			$pdf->AddPage();
 
-            // Graue Box für Kunde
-            $boxY = $pdf->GetY();
-            $pdf->SetFillColor(245, 245, 245); // Hellgrau
-            $pdf->SetDrawColor(200, 200, 200); // Rahmen grau
-            // Rechteck: X=20, Y=aktuell, B=170, H=45
-            $pdf->Rect(20, $boxY, 170, 45, 'DF');
-            
-            // Inhalt der Box: Links Text
-            $pdf->SetXY(25, $boxY + 6);
-            $pdf->SetFont('helvetica', 'B', 14);
-            $pdf->Cell(100, 8, $cust['name'], 0, 1);
-            
-            $pdf->SetFont('helvetica', '', 11);
-            $pdf->SetX(25);
-            $pdf->Cell(100, 6, ($cust['street']??''), 0, 1);
-            $pdf->SetX(25);
-            $pdf->Cell(100, 6, ($cust['zip']??'') . ' ' . ($cust['city']??''), 0, 1);
+			$pdf->SetY(40); 
+			$pdf->SetFont('helvetica', 'B', 24);
+			$pdf->SetTextColor(0, 0, 0);
 
-            // Inhalt der Box: Rechts Kundenlogo (falls vorhanden)
-            if (!empty($cust['logo_url'])) {
-                // Wir versuchen das Bild zu laden (lokaler Pfad oder URL)
-                // Platzieren bei X=145 (rechts in der Box), Y=BoxY+5, MaxBreite=40, MaxHöhe=35
-                @$pdf->Image($cust['logo_url'], 145, $boxY + 5, 40, 35, '', '', '', true, 300, 'R', false, false, 0, true, false, false);
-            }
+			// 1. Titel "Wartungsbericht" links
+			$pdf->Cell(100, 15, 'Wartungsbericht', 0, 0, 'L');
 
+			// 2. Kundenlogo rechts auf gleicher Höhe wie der Titel (X=150, Y=38)
+			if (!empty($cust['logo_url'])) {
+				@$pdf->Image($cust['logo_url'], 150, 38, 40, 20, '', '', '', true, 300, 'R');
+			}
+
+			$pdf->Ln(25);
+
+			// 3. Graue Box für Kundendaten (STRENG OHNE LOGO-LOGIK)
+			$boxY = $pdf->GetY();
+			$pdf->SetFillColor(245, 245, 245);
+			$pdf->SetDrawColor(200, 200, 200);
+			$pdf->Rect(20, $boxY, 170, 35, 'DF');
+
+			// Textinhalt der Box
+			$pdf->SetXY(25, $boxY + 6);
+			$pdf->SetFont('helvetica', 'B', 14);
+			$pdf->Cell(100, 8, $cust['name'], 0, 1);
+
+			$pdf->SetFont('helvetica', '', 11);
+			$pdf->SetX(25);
+			$pdf->Cell(100, 6, ($cust['street'] ?? ''), 0, 1);
+			$pdf->SetX(25);
+			$pdf->Cell(100, 6, ($cust['zip'] ?? '') . ' ' . ($cust['city'] ?? ''), 0, 1);
+
+			// Metadaten unter der Box
+			$pdf->SetY($boxY + 45);
+		
             // Unter der Box weiter
             $pdf->SetY($boxY + 55);
 

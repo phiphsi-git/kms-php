@@ -1,25 +1,31 @@
 <?php
 use App\Csrf;
 $cid = (int)$customer_id;
-$nowCH = new DateTimeImmutable('now', new DateTimeZone('Europe/Zurich'));
-$default = $nowCH->format('Y-m-d\TH:i'); // für datetime-local
+$c = \App\CustomerRepo::findWithDetails($cid);
+$lastReportDate = \App\ReportRepo::getLastReportDate($cid);
+$defaultFrom = $lastReportDate ? date('Y-m-d', strtotime($lastReportDate . ' +1 day')) : date('Y-m-d', strtotime('-1 month'));
 ?>
-<section class="card" style="max-width:560px;margin:0 auto">
-  <h3>PDF-Report erzeugen</h3>
-  <form method="post" action="?route=report_generate">
-    <?= Csrf::field() ?>
-    <input type="hidden" name="customer_id" value="<?= $cid ?>">
-
-    <label>Zeitraum
-      <div class="muted" style="margin-bottom:6px">
-        Es werden alle Aufgaben-Änderungen <strong>seit dem letzten Report</strong> bis zum gewählten Zeitpunkt berücksichtigt.
-      </div>
-      <input type="datetime-local" name="to" value="<?= htmlspecialchars($default) ?>" required>
-    </label>
-
-    <div class="actions" style="margin-top:12px">
-      <a class="btn" href="?route=customer_view&id=<?= $cid ?>">Abbrechen</a>
-      <button class="btn primary" type="submit">Report erzeugen</button>
+<section class="dash" style="max-width:800px; margin:0 auto; padding:20px;">
+    <h2>Bericht generieren: <?= htmlspecialchars($c['name']) ?></h2>
+    <div class="content-card">
+        <form method="post" action="?route=report_generate" enctype="multipart/form-data" style="padding:20px;">
+            <?= Csrf::field() ?>
+            <input type="hidden" name="customer_id" value="<?= $cid ?>">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div><label>Von:</label><input type="date" name="from_date" value="<?= $defaultFrom ?>" required style="width:100%;"></div>
+                <div><label>Bis:</label><input type="date" name="to_date" value="<?= date('Y-m-d') ?>" required style="width:100%;"></div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label>Bemerkungen:</label>
+                <textarea name="comment" rows="4" style="width:100%;" placeholder="Einleitungstext für den Kunden..."></textarea>
+            </div>
+            <div style="margin-bottom:20px; padding:15px; border:1px dashed #ccc; background:#fafafa;">
+                <label>Anlagen hinzufügen:</label>
+                <input type="file" name="attachments[]" multiple>
+            </div>
+            <div style="text-align:right;">
+                <button type="submit" class="btn-primary" style="padding:10px 25px;">PDF Report erstellen</button>
+            </div>
+        </form>
     </div>
-  </form>
 </section>

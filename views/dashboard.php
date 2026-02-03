@@ -1,110 +1,101 @@
 <?php
-use App\Auth;
-use App\Policy;
+$stats = \App\DashboardRepo::getStats();
+$user = \App\Auth::user();
+?>
+<section class="dash" style="max-width:1200px; margin:0 auto;">
+    
+    <h1 style="margin-bottom:30px;">Cockpit <small style="font-weight:normal; font-size:0.5em; color:#777;">Hallo, <?= htmlspecialchars($user['email']) ?></small></h1>
 
-$user = Auth::user();
-$canEditTask = Policy::can('tasks.update');
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:40px;">
+        
+        <a href="?route=tasks_global&filter=overdue" class="card" style="text-decoration:none; background:#fff; padding:20px; border-radius:8px; border:1px solid #ddd; border-left:5px solid #d9534f; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:transform 0.2s;">
+            <div style="font-size:0.9em; color:#777; text-transform:uppercase;">Überfällig / Heute</div>
+            <div style="font-size:2.5em; font-weight:bold; color:#d9534f; margin-top:5px;"><?= $stats['overdue'] ?></div>
+        </a>
 
-// Erwartete Gruppen-Schlüssel aus TaskRepo::groupByDueBuckets():
-// 'overdue', 'today', 'tomorrow', 'week'
-$groups = is_array($groups ?? null) ? $groups : [];
-$groups += ['overdue'=>[], 'today'=>[], 'tomorrow'=>[], 'week'=>[]];
+        <a href="?route=tasks_global&filter=all" class="card" style="text-decoration:none; background:#fff; padding:20px; border-radius:8px; border:1px solid #ddd; border-left:5px solid #0275d8; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:transform 0.2s;">
+            <div style="font-size:0.9em; color:#777; text-transform:uppercase;">Alle Offenen Tickets</div>
+            <div style="font-size:2.5em; font-weight:bold; color:#333; margin-top:5px;"><?= $stats['open_total'] ?></div>
+        </a>
 
-function renderBucket(string $key, string $title, array $items, bool $canEditTask): void { ?>
-  <div class="card">
-    <h3><?= htmlspecialchars($title) ?> (<?= count($items) ?>)</h3>
-    <?php if (!count($items)): ?>
-      <p class="muted">
-        <?php
-          echo match ($key) {
-            'overdue' => 'Keine überfälligen Aufgaben.',
-            'today' => 'Keine Aufgaben für heute.',
-            'tomorrow' => 'Keine Aufgaben für morgen.',
-            'week' => 'Keine weiteren Aufgaben in dieser Woche.',
-            default => 'Keine Aufgaben.',
-          };
-        ?>
-      </p>
-    <?php else: ?>
-      <ul class="task-list">
-        <?php foreach ($items as $t):
-          // $t sollte mind. id, customer_id, title, due_date haben
-          $href = $canEditTask
-            ? '?route=task_edit&id='.(int)$t['id']
-            : '?route=customer_view&id='.(int)$t['customer_id'];
-          $dueStr = !empty($t['due_date']) ? date('d.m.Y H:i', strtotime($t['due_date'])) : null;
-        ?>
-          <li class="task-row">
-            <a class="task-link <?= htmlspecialchars($key) ?>" href="<?= $href ?>">
-              <div class="task-main">
-                <strong><?= htmlspecialchars($t['title'] ?? '') ?></strong>
-                <small class="muted">
-                  <?= htmlspecialchars($t['customer_name'] ?? '') ?>
-                  <?php if (!empty($t['system_name'])): ?>
-                    · <?= htmlspecialchars($t['system_name']) ?>
-                  <?php endif; ?>
-                  <?php if ($dueStr): ?>
-                    · Fällig: <?= htmlspecialchars($dueStr) ?>
-                  <?php endif; ?>
-                  <?php if (!empty($t['is_paused'])): ?>
-                    · <span class="dot dot--red" title="Pausiert"></span>
-                  <?php endif; ?>
-                </small>
-              </div>
-              <div class="task-meta">
-                <?php
-                  $badgeClass = match ($key) {
-                    'overdue' => 'danger',
-                    'today'   => 'warning',
-                    'tomorrow'=> '',
-                    'week'    => 'neutral',
-                    default   => '',
-                  };
-                ?>
-                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($t['status'] ?? 'offen') ?></span>
-              </div>
-            </a>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-    <?php endif; ?>
-  </div>
-<?php } ?>
+        <a href="?route=tasks_global&filter=mine" class="card" style="text-decoration:none; background:#fff; padding:20px; border-radius:8px; border:1px solid #ddd; border-left:5px solid #5cb85c; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:transform 0.2s;">
+            <div style="font-size:0.9em; color:#777; text-transform:uppercase;">Meine Tickets</div>
+            <div style="font-size:2.5em; font-weight:bold; color:#333; margin-top:5px;"><?= $stats['my_open'] ?></div>
+        </a>
 
-<section class="dash">
-  <header class="dash-header">
-    <h2>Dashboard</h2>
-    <div class="muted">Willkommen, <?= htmlspecialchars($user['email'] ?? '') ?></div>
-  </header>
+    </div>
 
-  <div class="grid-2 mt-4">
-    <?php renderBucket('overdue',  'Überfällig',  $groups['overdue'],  $canEditTask); ?>
-    <?php renderBucket('today',    'Heute',       $groups['today'],    $canEditTask); ?>
-    <?php renderBucket('tomorrow', 'Morgen',      $groups['tomorrow'], $canEditTask); ?>
-    <?php renderBucket('week',     'Diese Woche', $groups['week'],     $canEditTask); ?>
-  </div>
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:30px;">
+        
+        <div class="card" style="background:#fff; border-radius:8px; border:1px solid #eee; overflow:hidden; display:flex; flex-direction:column;">
+            <div style="background:#f9f9f9; padding:10px 15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold;">Neueste Aktivitäten (Global)</span>
+                <input type="text" id="dashLogSearch" placeholder="Filter..." onkeyup="filterDashLog()" style="padding:5px 10px; border:1px solid #ccc; border-radius:4px; font-size:0.9em; width:150px;">
+            </div>
+            <div style="max-height:350px; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.9em;" id="dashLogTable">
+                    <?php if(empty($stats['logs'])): ?>
+                        <tr><td style="padding:20px; text-align:center; color:#888;">Keine Aktivitäten vorhanden.</td></tr>
+                    <?php else: ?>
+                        <?php foreach($stats['logs'] as $l): ?>
+                        <tr style="border-bottom:1px solid #f0f0f0;">
+                            <td style="padding:12px; color:#888; width:130px; font-size:0.85em; vertical-align:top;"><?= date('d.m.y H:i', strtotime($l['created_at'])) ?></td>
+                            <td style="padding:12px; vertical-align:top;">
+                                <?php if(!empty($l['customer_name'])): ?>
+                                    <a href="?route=customer_view&id=<?= $l['customer_id'] ?>" style="text-decoration:none; font-weight:bold; color:#333;"><?= htmlspecialchars($l['customer_name']) ?></a><br>
+                                <?php endif; ?>
+                                <span style="color:#555;"><?= htmlspecialchars($l['note']) ?></span>
+                            </td>
+                            <td style="padding:12px; text-align:right; vertical-align:top;"><span style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:0.75em; color:#666;"><?= htmlspecialchars($l['user_email']??'System') ?></span></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </table>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:30px;">
+            <div class="card" style="background:#fff; border-radius:8px; border:1px solid #eee;">
+                <div style="background:#f9f9f9; padding:15px; border-bottom:1px solid #eee; font-weight:bold;">Top Arbeitslast</div>
+                <ul style="list-style:none; padding:0; margin:0;">
+                    <?php if(empty($stats['burners'])): ?><li style="padding:20px; text-align:center; color:#888;">Alles ruhig.</li><?php else: ?>
+                        <?php foreach($stats['burners'] as $b): ?>
+                        <li style="border-bottom:1px solid #f0f0f0; padding:12px; display:flex; justify-content:space-between; align-items:center;"><a href="?route=customer_view&id=<?= $b['id'] ?>" style="text-decoration:none; font-weight:bold; color:#0275d8;"><?= htmlspecialchars($b['name']) ?></a><span style="background:#f0ad4e; color:white; padding:2px 8px; border-radius:10px; font-weight:bold; font-size:0.9em;"><?= $b['cnt'] ?> Offen</span></li>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </ul>
+            </div>
+
+            <div class="card" style="background:#fff; border-radius:8px; border:1px solid #eee;">
+                <div style="background:#f9f9f9; padding:15px; border-bottom:1px solid #eee; font-weight:bold; color:#d9534f;">Garantie Ablauf (90 Tage)</div>
+                <ul style="list-style:none; padding:0; margin:0;">
+                    <?php if(empty($stats['expiring'])): ?><li style="padding:20px; text-align:center; color:#888;">Keine.</li><?php else: ?>
+                        <?php foreach($stats['expiring'] as $ex): ?>
+                        <li style="border-bottom:1px solid #f0f0f0; padding:12px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                                <a href="?route=system_edit&id=<?= $ex['id'] ?>" style="text-decoration:none; font-weight:bold; color:#333;"><?= htmlspecialchars($ex['name']) ?></a>
+                                <span style="color:#d9534f; font-weight:bold; font-size:0.9em;"><?= date('d.m.Y', strtotime($ex['warranty_expires'])) ?></span>
+                            </div>
+                            <div style="font-size:0.85em; color:#666;"><?= htmlspecialchars($ex['customer_name']) ?></div>
+                        </li>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </ul>
+            </div>
+        </div>
+
+    </div>
 </section>
-
-<style>
-/* klickbare Aufgabenzeilen */
-.task-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
-.task-row { margin:0; padding:0; }
-.task-link {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:10px 12px; border:1px solid var(--border);
-  border-radius:10px; background:#fff;
-  text-decoration:none; color:inherit; transition:background .15s,border .15s;
+<script>
+function filterDashLog() {
+  const input = document.getElementById('dashLogSearch');
+  const filter = input.value.toLowerCase();
+  const rows = document.querySelectorAll('#dashLogTable tr');
+  rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes("keine aktivitäten")) return;
+      row.style.display = text.includes(filter) ? '' : 'none';
+  });
 }
-.task-link:hover { background:#f8fafc; border-color:#dbeafe; }
-.task-main strong { display:block; margin-bottom:2px; }
-.task-main small { font-size:12px; color:#666; }
-.task-meta .badge { font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid #ccc; }
-
-/* Farbakzente je Bucket */
-.badge.danger { background:#fee2e2; border-color:#fecaca; }
-.badge.warning{ background:#fff7da; border-color:#fce29f; }
-.badge.neutral{ background:#eaf7ef; border-color:#c5e6d1; }
-.task-link.overdue:hover  { background:#fff1f1; }
-.task-link.today:hover    { background:#fffbea; }
-.task-link.tomorrow:hover { background:#f0f9ff; }
-</style>
+</script>
+<style>.card:hover { transform: translateY(-2px); }</style>

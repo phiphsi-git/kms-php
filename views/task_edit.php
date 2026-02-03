@@ -1,281 +1,199 @@
-<?php use App\Csrf; ?>
-<section class="dash">
-  <header class="dash-header">
-    <div><h2>Aufgabe bearbeiten</h2></div>
-    <div class="actions"><a class="btn" href="?route=customer_view&id=<?= (int)$t['customer_id'] ?>">Zurück</a></div>
+<?php
+use App\Csrf;
+use App\TaskRepo;
+use App\SystemRepo;
+use App\TaskCheckpointRepo;
+
+// ID prüfen: 0 bedeutet "Neu anlegen"
+$id = (int)($_GET['id'] ?? 0);
+$customerId = (int)($_GET['customer_id'] ?? 0);
+$isNew = ($id === 0);
+
+$t = null;
+$checkpoints = [];
+
+if ($isNew) {
+    // Standardwerte für neue Aufgabe
+    if ($customerId <= 0) die("Fehler: Kein Kunde angegeben.");
+    $t = [
+        'id' => 0,
+        'customer_id' => $customerId,
+        'title' => '',
+        'status' => 'offen',
+        'system_id' => 0,
+        'due_date' => null,
+        'is_recurring' => 0,
+        'is_paused' => 0,
+        'pause_reason' => '',
+        'comment' => '',
+        'time_spent_minutes' => 0
+    ];
+} else {
+    // Bestehende Aufgabe laden
+    $t = TaskRepo::find($id);
+    if (!$t) die("Aufgabe nicht gefunden.");
+    $customerId = $t['customer_id'];
+    // Checkpoints nur laden, wenn Aufgabe existiert
+    if (class_exists('\App\TaskCheckpointRepo')) {
+        $checkpoints = TaskCheckpointRepo::listByTask($id);
+    }
+}
+
+// Systeme für Dropdown laden
+$systems = SystemRepo::listByCustomer($customerId);
+?>
+
+<section class="dash" style="max-width:900px; margin:0 auto; padding:20px;">
+  
+  <header style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="margin:0;"><?= $isNew ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten' ?></h2>
+    <?php if(!$isNew): ?>
+        <div class="muted">Erstellt am <?= date('d.m.Y', strtotime($t['created_at'])) ?></div>
+    <?php endif; ?>
   </header>
 
-	<?php if (!empty($templates)): ?>
-	  <label>Vorlage
-		<select name="template_id" onchange="applyTemplate(this.value)">
-		  <option value="">— wählen —</option>
-		  <?php foreach ($templates as $tpl): ?>
-			<option value="<?= (int)$tpl['id'] ?>"
-			  data-title="<?= htmlspecialchars($tpl['title']) ?>"
-			  data-comment="<?= htmlspecialchars($tpl['default_comment'] ?? '') ?>"
-			  data-rec="<?= (int)$tpl['is_recurring'] ?>"
-			><?= htmlspecialchars($tpl['title']) ?></option>
-		  <?php endforeach; ?>
-		</select>
-	  </label>
-	  <script>
-		async function applyTemplate(id){
-		  if(!id){return;}
-		  try{
-			const res = await fetch('?route=template_load&id='+id);
-			const data = await res.json();
-			if(data && data.ok){
-			  if(data.tpl){
-				if(document.querySelector('input[name=title]') && !document.querySelector('input[name=title]').value)
-				  document.querySelector('input[name=title]').value = data.tpl.title || '';
-				if(document.querySelector('textarea[name=comment]') && !document.querySelector('textarea[name=comment]').value)
-				  document.querySelector('textarea[name=comment]').value = data.tpl.default_comment || '';
-				if(document.querySelector('input[name=is_recurring]'))
-				  document.querySelector('input[name=is_recurring]').checked = !!(+data.tpl.is_recurring);
-			  }
-			  if(data.checkpoints && window.addCpRow){
-				data.checkpoints.forEach((cp, idx)=>{
-				  addCpRow();
-				  const rows = document.querySelectorAll('#cpRows .cp-row');
-				  const row = rows[rows.length-1];
-				  row.querySelector('input[name="cp_label[]"]').value = cp.label || '';
-				  const chk = row.querySelector('input[type=checkbox][name^="cp_reqcmt"]');
-				  if(chk) chk.checked = !!(+cp.require_comment_on_fail);
-				});
-			  }
-			}
-		  }catch(e){ console.error(e); }
-		}
-	  </script>
-	<?php endif; ?>
-
-  <?php if (!empty($errors)): ?>
-    <div class="alert error"><?php foreach ($errors as $e) echo htmlspecialchars($e).'<br>'; ?></div>
-  <?php endif; ?>
-
-  <form method="post" action="?route=task_update&id=<?= (int)$t['id'] ?>" class="form">
+  <form method="post" action="?route=<?= $isNew ? 'task_create' : 'task_update&id='.$t['id'] ?>" class="card" style="background:#fff; padding:20px; border:1px solid #ddd; border-radius:8px;">
     <?= Csrf::field() ?>
-    <label>Titel* <input type="text" name="title" required value="<?= htmlspecialchars($t['title']) ?>"></label>
-
-    <div class="grid">
-      <label>System
-        <select name="system_id">
-          <option value="">– keines –</option>
-          <?php foreach ($systems as $s): ?>
-            <option value="<?= (int)$s['id'] ?>" <?= ((int)$t['system_id'] === (int)$s['id'])?'selected':'' ?>>
-              <?= htmlspecialchars($s['name']) ?>
-            </option>
-          <?php endforeach; ?>
-        </select>
-      </label>
-	  
-      <label>Status
-        <select name="status">
-          <?php $st = $t['status']; ?>
-          <option value="offen"      <?= $st==='offen'?'selected':'' ?>>offen</option>
-          <option value="ausstehend" <?= $st==='ausstehend'?'selected':'' ?>>ausstehend</option>
-          <option value="erledigt"   <?= $st==='erledigt'?'selected':'' ?>>erledigt</option>
-        </select>
-      </label>
+    <?php if($isNew): ?><input type="hidden" name="customer_id" value="<?= $customerId ?>"><?php endif; ?>
+    
+    <div style="margin-bottom:20px;">
+        <label style="display:block; font-weight:bold; margin-bottom:5px;">Titel</label>
+        <input type="text" name="title" value="<?= htmlspecialchars($t['title']) ?>" required placeholder="Was ist zu tun?" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:1.1em;">
     </div>
 
-	<div class="grid">
-	  <label>
-		<input type="checkbox" name="is_recurring" value="1" <?= !empty($t['is_recurring'])?'checked':'' ?>>
-		Durch Kunden-Wartungsintervall steuern
-	  </label>
-	  <label>
-		<input type="checkbox" name="is_paused" value="1" <?= !empty($t['is_paused'])?'checked':'' ?>>
-		Aufgabe pausieren (Intervall greift nicht)
-	  </label>
-	</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+        <div>
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">System</label>
+            <select name="system_id" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <option value="0">-- Allgemein (Kein System) --</option>
+                <?php foreach ($systems as $s): ?>
+                    <option value="<?= $s['id'] ?>" <?= ($t['system_id'] == $s['id']) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($s['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
 
-	<label id="fld_pause_reason" style="<?= empty($t['is_paused'])?'display:none':'' ?>">Grund der Pausierung
-	  <input type="text" name="pause_reason" maxlength="500" value="<?= htmlspecialchars($t['pause_reason'] ?? '') ?>">
-	</label>
-
-	<script>
-	(function(){
-	  const cb = document.querySelector('input[name="is_paused"]');
-	  const fld = document.getElementById('fld_pause_reason');
-	  function upd(){ fld.style.display = cb.checked ? '' : 'none'; }
-	  cb.addEventListener('change', upd);
-	})();
-	</script>
-
-    <label>Fälligkeitsdatum/Zeit
-      <input type="datetime-local" name="due_date"
-             value="<?= !empty($t['due_date']) ? date('Y-m-d\TH:i', strtotime($t['due_date'])) : '' ?>">
-    </label>
-
-    <label>Kommentar
-      <textarea name="comment" rows="3"><?= htmlspecialchars($t['comment'] ?? '') ?></textarea>
-    </label>
-	
-	<?php $files = \App\FileRepo::listByTask((int)$t['id']); ?>
-	<div class="card" style="margin-top:12px">
-	  <h3>Dateien zum System (<?= count($files) ?>)</h3>
-	  <?php if (!$files): ?><p class="muted">Keine Dateien verknüpft.</p>
-	  <?php else: ?>
-		<ul class="simple-list">
-		  <?php foreach ($files as $f): ?>
-			<li>
-			  <div>
-				<strong><?= htmlspecialchars($f['original_name']) ?></strong>
-				<?php if (!empty($f['description'])): ?>
-				  <div class="muted"><?= htmlspecialchars($f['description']) ?></div>
-				<?php endif; ?>
-			  </div>
-			  <div class="actions">
-				<a class="btn small" href="?route=file_preview&id=<?= (int)$f['id'] ?>">Öffnen</a>
-				<a class="btn small" href="?route=file_download&id=<?= (int)$f['id'] ?>">Download</a>
-			  </div>
-			</li>
-		  <?php endforeach; ?>
-		</ul>
-	  <?php endif; ?>
-	</div>
-	
-	<?php if (!empty($t['id'])): 
-	  $log = \App\TaskStatusLogRepo::listRecent((int)$t['id'], 10);
-	?>
-	  <div class="card" style="margin-top:12px">
-		<h3>Letzte Änderungen</h3>
-		<?php if (!$log): ?>
-		  <p class="muted">Keine Einträge.</p>
-		<?php else: ?>
-		  <ul class="simple-list">
-			<?php foreach ($log as $row): ?>
-			  <li>
-				<strong><?= htmlspecialchars($row['status']) ?></strong>
-				· <?= htmlspecialchars($row['user_email'] ?? '—') ?>
-				· <small class="muted"><?= htmlspecialchars(date('d.m.Y H:i', strtotime($row['changed_at']))) ?></small>
-				<?php if (!empty($row['comment'])): ?><div class="muted"><?= nl2br(htmlspecialchars($row['comment'])) ?></div><?php endif; ?>
-			  </li>
-			<?php endforeach; ?>
-		  </ul>
-		<?php endif; ?>
-	  </div>
-	<?php endif; ?>
-
-    <div class="flex gap">
-      <button class="btn primary" type="submit">Speichern</button>
-      <form method="post" action="?route=task_delete&id=<?= (int)$t['id'] ?>" onsubmit="return confirm('Aufgabe wirklich löschen?');" style="display:inline">
-        <?= Csrf::field() ?>
-        <button class="btn danger" type="submit">Löschen</button>
-      </form>
+        <div>
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">Status</label>
+            <select name="status" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-weight:bold;">
+                <option value="offen" <?= $t['status']==='offen'?'selected':'' ?> style="color:#d9534f;">Offen</option>
+                <option value="ausstehend" <?= $t['status']==='ausstehend'?'selected':'' ?> style="color:#f0ad4e;">Ausstehend</option>
+                <option value="erledigt" <?= $t['status']==='erledigt'?'selected':'' ?> style="color:#28a745;">Erledigt</option>
+            </select>
+        </div>
     </div>
-	
-	<?php
-	// vorhandene Punkte laden, wenn nicht aus Postback vorhanden
-	if (!isset($checkpoints)) {
-	  $rows = \App\TaskCheckpointRepo::listByTask((int)$t['id']);
-	  $cp_ids=$cp_labels=$cp_done=$cp_req=$cp_cmts=$cp_orders=[];
-	  foreach ($rows as $i=>$r) {
-		$cp_ids[]   = (int)$r['id'];
-		$cp_labels[] = $r['label'];
-		$cp_done[]   = (int)$r['is_done'];
-		$cp_req[]    = (int)$r['require_comment_on_fail'];
-		$cp_cmts[]   = $r['comment'];
-		$cp_orders[] = (int)$r['sort_order'];
-	  }
-	} else {
-	  // aus Postback (Fehlerfall)
-	  $cp_ids   = $checkpoints['ids'] ?? [];
-	  $cp_labels= $checkpoints['labels'] ?? [];
-	  $cp_done  = $checkpoints['is_done'] ?? [];
-	  $cp_req   = $checkpoints['require_comment_on_fail'] ?? [];
-	  $cp_cmts  = $checkpoints['comments'] ?? [];
-	  $cp_orders= $checkpoints['orders'] ?? [];
-	}
-	?>
 
-	<div class="card" style="margin-top:12px">
-	  <div class="card-head-between">
-		<h3>Kontrollpunkte</h3>
-		<button type="button" class="icon-btn" title="Neuer Kontrollpunkt" onclick="addCpRow()">
-		  <svg class="icon"><use href="#i-plus"/></svg>
-		</button>
-	  </div>
+    <div style="margin-bottom:20px; padding:15px; background:#f0f7ff; border:1px solid #cce5ff; border-radius:6px;">
+        <label style="display:block; font-weight:bold; margin-bottom:5px; color:#004085;">Zeitaufwand (Minuten)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <input type="number" name="time_spent_minutes" value="<?= (int)($t['time_spent_minutes']??0) ?>" min="0" style="width:120px; padding:8px; border:1px solid #ccc; border-radius:4px;">
+            <small style="color:#666;">Effektive Arbeitszeit erfassen.</small>
+        </div>
+    </div>
 
-	  <div id="cpRows" class="cp-grid">
-		<?php
-		  $count = max(count($cp_labels), 1);
-		  for ($i=0; $i<$count; $i++):
-			$id   = htmlspecialchars((string)($cp_ids[$i] ?? ''));
-			$txt  = htmlspecialchars((string)($cp_labels[$i] ?? ''));
-			$done = !empty($cp_done[$i]);
-			$req  = isset($cp_req[$i]) ? (int)$cp_req[$i] : 1;
-			$cmt  = htmlspecialchars((string)($cp_cmts[$i] ?? ''));
-			$ord  = htmlspecialchars((string)($cp_orders[$i] ?? $i));
-		?>
-		  <div class="cp-row">
-			<input type="hidden" name="cp_id[]" value="<?= $id ?>">
-			<input type="hidden" name="cp_order[]" value="<?= $ord ?>" class="cp-order">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+        <div>
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">Fälligkeitsdatum</label>
+            <input type="datetime-local" name="due_date" value="<?= !empty($t['due_date']) ? date('Y-m-d\TH:i', strtotime($t['due_date'])) : '' ?>" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; padding-top:25px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="is_recurring" value="1" <?= !empty($t['is_recurring']) ? 'checked' : '' ?>>
+                <span>Wiederkehrende Aufgabe (Kunden-Intervall)</span>
+            </label>
 
-			<!-- OK -->
-			<label class="cp-ok" title="OK">
-			  <input type="checkbox" name="cp_done[<?= $i ?>]" value="1" <?= $done?'checked':'' ?>>
-			</label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="is_paused" value="1" <?= !empty($t['is_paused']) ? 'checked' : '' ?> onchange="document.getElementById('pause_reason_box').style.display = this.checked ? 'block' : 'none'">
+                <span>Aufgabe pausieren</span>
+            </label>
+            
+            <div id="pause_reason_box" style="display:<?= !empty($t['is_paused']) ? 'block' : 'none' ?>; margin-left:25px;">
+                <input type="text" name="pause_reason" value="<?= htmlspecialchars($t['pause_reason']??'') ?>" placeholder="Grund für Pause..." style="width:100%; padding:6px; border:1px solid #d9534f; border-radius:4px;">
+            </div>
+        </div>
+    </div>
 
-			<!-- Text -->
-			<input class="cp-text" type="text" name="cp_label[]" value="<?= $txt ?>" placeholder="Kontrollpunkt…" required>
+    <div style="margin-bottom:20px;">
+        <label style="display:block; font-weight:bold; margin-bottom:5px;">Kommentar / Notizen</label>
+        <textarea name="comment" rows="3" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"><?= htmlspecialchars($t['comment']??'') ?></textarea>
+    </div>
 
-			<!-- Kommentar -->
-			<input class="cp-comment" type="text" name="cp_comment[]" value="<?= $cmt ?>" placeholder="Kommentar (falls nicht ok)">
+    <?php if(!$isNew): ?>
+        <hr style="border:0; border-top:1px solid #eee; margin:30px 0;">
+        <h3 style="font-size:1.1em; margin-bottom:15px;">Checkliste / Kontrollpunkte</h3>
+        
+        <div id="cp-container">
+            <?php foreach($checkpoints as $cp): ?>
+            <div class="cp-row" style="display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; padding:10px; background:#f9f9f9; border-radius:4px;">
+                <input type="hidden" name="cp[ids][]" value="<?= $cp['id'] ?>">
+                <input type="hidden" name="cp[orders][]" value="<?= $cp['sort_order'] ?>">
+                
+                <div style="padding-top:5px;">
+                    <input type="checkbox" name="cp[is_done][]" value="1" <?= $cp['is_done']?'checked':'' ?> style="transform:scale(1.2);">
+                </div>
+                
+                <div style="flex:1;">
+                    <input type="text" name="cp[labels][]" value="<?= htmlspecialchars($cp['label']) ?>" placeholder="Bezeichnung..." required style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-weight:bold;">
+                    <div style="margin-top:5px; display:flex; gap:10px; align-items:center;">
+                        <input type="text" name="cp[comments][]" value="<?= htmlspecialchars($cp['comment']??'') ?>" placeholder="Kommentar / Ergebnis..." style="flex:1; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">
+                        <label style="font-size:0.85em; color:#666; display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" name="cp[require_comment_on_fail][]" value="1" <?= $cp['require_comment_on_fail']?'checked':'' ?>>
+                            Pflicht bei Fehler
+                        </label>
+                    </div>
+                </div>
 
-			<!-- Bemerkungspflicht -->
-			<label class="cp-toggle" title="Bemerkungspflicht bei »nicht ok«">
-			  <input type="checkbox" name="cp_reqcmt[<?= $i ?>]" value="1" <?= $req ? 'checked':'' ?>>
-			  <svg class="icon"><use href="#i-require"/></svg>
-			</label>
+                <button type="button" class="btn-icon btn-danger" onclick="this.closest('.cp-row').remove()" title="Entfernen" style="border:none; background:none; cursor:pointer; color:#d9534f;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <?php endforeach; ?>
+        </div>
 
-			<!-- Entfernen -->
-			<button type="button" class="icon-btn danger" title="Entfernen" onclick="removeCpRow(this)">
-			  <svg class="icon"><use href="#i-trash"/></svg>
-			</button>
-		  </div>
-		<?php endfor; ?>
-	  </div>
+        <button type="button" onclick="addCheckpoint()" style="background:#eee; border:1px solid #ccc; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:0.9em; display:flex; align-items:center; gap:5px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Neuen Punkt hinzufügen
+        </button>
+    <?php else: ?>
+        <div style="margin-top:30px; padding:15px; background:#fff3cd; border:1px solid #ffeeba; color:#856404; border-radius:4px;">
+            ℹ️ <strong>Hinweis:</strong> Checklisten können erst erstellt werden, nachdem die Aufgabe einmal gespeichert wurde.
+        </div>
+    <?php endif; ?>
 
-	  <small class="muted">Kommentar wird nur verlangt, wenn das Häkchen nicht gesetzt ist und die Bemerkungspflicht aktiv ist.</small>
-	</div>
-
-	<script>
-	function addCpRow(){
-	  const cont = document.getElementById('cpRows');
-	  const idx  = cont.querySelectorAll('.cp-row').length;
-	  const row = document.createElement('div');
-	  row.className = 'cp-row';
-	  row.innerHTML = `
-		<input type="hidden" name="cp_id[]" value="">
-		<input type="hidden" name="cp_order[]" value="${idx}" class="cp-order">
-
-		<label class="cp-ok" title="OK">
-		  <input type="checkbox" name="cp_done[${idx}]" value="1">
-		</label>
-
-		<input class="cp-text" type="text" name="cp_label[]" placeholder="Kontrollpunkt…" required>
-
-		<input class="cp-comment" type="text" name="cp_comment[]" placeholder="Kommentar (falls nicht ok)">
-
-		<label class="cp-toggle" title="Bemerkungspflicht bei »nicht ok«">
-		  <input type="checkbox" name="cp_reqcmt[${idx}]" value="1" checked>
-		  <svg class="icon"><use href="#i-require"/></svg>
-		</label>
-
-		<button type="button" class="icon-btn danger" title="Entfernen" onclick="removeCpRow(this)">
-		  <svg class="icon"><use href="#i-trash"/></svg>
-		</button>
-	  `;
-	  cont.appendChild(row);
-	}
-
-	function removeCpRow(btn){
-	  const row = btn.closest('.cp-row'); if (row) row.remove();
-	}
-	</script>
-
+    <div style="display:flex; justify-content:space-between; margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
+        <a href="?route=customer_view&id=<?= $customerId ?>" style="padding:10px 20px; border:1px solid #ccc; text-decoration:none; color:#333; border-radius:4px;">Abbrechen</a>
+        <button type="submit" style="padding:10px 25px; background:#0056b3; color:white; border:none; border-radius:4px; cursor:pointer; font-size:1em;">
+            <?= $isNew ? 'Aufgabe erstellen' : 'Speichern' ?>
+        </button>
+    </div>
 
   </form>
 </section>
+
+<?php if(!$isNew): ?>
+<template id="cp-template">
+    <div class="cp-row" style="display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; padding:10px; background:#f9f9f9; border-radius:4px; border-left:3px solid #0056b3;">
+        <input type="hidden" name="cp[ids][]" value="0">
+        <input type="hidden" name="cp[orders][]" value="99">
+        <div style="padding-top:5px;"><input type="checkbox" disabled title="Erst nach Speichern verfügbar"></div>
+        <div style="flex:1;">
+            <input type="text" name="cp[labels][]" placeholder="Bezeichnung der Prüfung..." required style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-weight:bold;">
+            <div style="margin-top:5px; display:flex; gap:10px; align-items:center;">
+                <input type="text" name="cp[comments][]" placeholder="Kommentar..." style="flex:1; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">
+                <label style="font-size:0.85em; color:#666; display:flex; align-items:center; gap:4px;"><input type="checkbox" name="cp[require_comment_on_fail][]" value="1"> Pflicht bei Fehler</label>
+            </div>
+        </div>
+        <button type="button" class="btn-icon btn-danger" onclick="this.closest('.cp-row').remove()" style="border:none; background:none; cursor:pointer; color:#d9534f;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+</template>
+<script>
+function addCheckpoint() {
+    const tpl = document.getElementById('cp-template');
+    const container = document.getElementById('cp-container');
+    const clone = tpl.content.cloneNode(true);
+    container.appendChild(clone);
+}
+</script>
+<?php endif; ?>

@@ -7,73 +7,58 @@
   <title><?= htmlspecialchars(Config::APP_NAME) ?></title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-	<?php
-	  // ganz oben im <head> deiner layout.php
-	  $cssPath = __DIR__ . '/../public/assets/styles.css'; // Server-Pfad
-	  $cssUrl  = \App\Config::BASE_URL . 'assets/styles.css?v=' . (file_exists($cssPath) ? filemtime($cssPath) : time());
-	?>
-	<link rel="stylesheet" href="<?= htmlspecialchars($cssUrl) ?>">
+  <?php $cssUrl = \App\Config::BASE_URL . 'assets/styles.css?v=' . time(); ?>
+  <link rel="stylesheet" href="<?= htmlspecialchars($cssUrl) ?>">
+  <style>
+    .search-container { position: relative; margin-left: 20px; }
+    #globalSearch { padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 0.9em; width: 250px; background: #f9f9f9; transition: width 0.2s; }
+    #globalSearch:focus { width: 300px; background: #fff; border-color: #0056b3; outline: none; }
+    #globalSearchResult { position: absolute; top: 100%; left: 0; width: 100%; min-width: 300px; background: white; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; z-index: 1000; border-radius: 6px; overflow: hidden; margin-top: 5px; }
+    .search-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; text-decoration: none; color: #333; font-size: 0.9em; }
+    .search-item:last-child { border-bottom: none; }
+    .search-item:hover { background: #f0f7ff; }
+    .search-item strong { display: block; }
+    .search-item small { color: #888; display: block; }
+  </style>
 </head>
 <body>
 <nav class="topnav">
   <a class="brand" href="?route=dashboard">KMS</a>
-
   <a href="?route=dashboard" class="<?= ($_GET['route'] ?? '')==='dashboard' ? 'active' : '' ?>">Dashboard</a>
   <a href="?route=customers" class="<?= ($_GET['route'] ?? '')==='customers' ? 'active' : '' ?>">Kunden</a>
-
   <?php if (\App\Auth::check()): ?>
-    <a href="?route=account" class="<?= ($_GET['route'] ?? '')==='account' ? 'active' : '' ?>">Persönliches Konto</a>
-
-    <?php // Nutzerverwaltung (nur für berechtigte Rollen anzeigen)
-    if (\App\Policy::can('users.manage') || \App\Policy::can('users.view') || (\App\Auth::user()['role'] ?? '') === 'Admin'): ?>
-      <a href="?route=users" class="<?= ($_GET['route'] ?? '')==='users' ? 'active' : '' ?>">Nutzerverwaltung</a>
+    <div class="search-container"><input type="text" id="globalSearch" placeholder="🔍 Suchen..."><div id="globalSearchResult"></div></div>
+    <a href="?route=account" class="<?= ($_GET['route'] ?? '')==='account' ? 'active' : '' ?>" style="margin-left:auto;">Konto</a>
+    <?php if (\App\Policy::can('users.manage') || \App\Policy::can('users.view') || (\App\Auth::user()['role'] ?? '') === 'Admin'): ?>
+      <a href="?route=users" class="<?= ($_GET['route'] ?? '')==='users' ? 'active' : '' ?>">Nutzer</a>
     <?php endif; ?>
+    <form method="post" action="?route=logout" style="display:inline; margin-left:10px;"><?= \App\Csrf::field() ?><button class="btn" type="submit">Abmelden</button></form>
   <?php endif; ?>
-
-  <div class="right">
-    <?php if (\App\Auth::check()): ?>
-      <form method="post" action="?route=logout" style="display:inline">
-        <?= \App\Csrf::field() ?>
-        <button class="btn" type="submit">Abmelden</button>
-      </form>
-    <?php endif; ?>
-  </div>
 </nav>
-
-  <main class="container">
-    <?= $content ?? '' ?>
-  </main>
-  <footer class="footer"><span><?= htmlspecialchars(Config::APP_NAME) ?></span></footer>
-    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-	  <symbol id="i-open" viewBox="0 0 24 24">
-		<path d="M10 3H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-5"/>
-		<path d="M15 3h6v6"/>
-		<path d="M10 14L21 3"/>
-	  </symbol>
-	  <symbol id="i-download" viewBox="0 0 24 24">
-		<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-		<path d="M7 10l5 5 5-5"/>
-		<path d="M12 15V3"/>
-	  </symbol>
-	  <symbol id="i-trash" viewBox="0 0 24 24">
-		<path d="M3 6h18"/>
-		<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-		<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-		<path d="M10 11v6M14 11v6"/>
-	  </symbol>
-	  <symbol id="i-edit" viewBox="0 0 24 24">
-		<path d="M12 20h9"/>
-		<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-	  </symbol>
-	  <symbol id="i-plus" viewBox="0 0 24 24">
-	    <path d="M12 5v14M5 12h14"/>
-	  </symbol>
-	  <symbol id="i-require" viewBox="0 0 24 24">
-		<!-- kleines „Shield/Check“-Icon als Pflicht-Indikator -->
-		<path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/>
-		<path d="M9 12l2 2 4-4"/>
-	  </symbol>
-	</svg>
-
+<main class="container"><?= $content ?? '' ?></main>
+<footer class="footer"><span><?= htmlspecialchars(Config::APP_NAME) ?></span></footer>
+<script>
+const sInput = document.getElementById('globalSearch'); const sRes = document.getElementById('globalSearchResult');
+if(sInput){
+    sInput.addEventListener('input', function() {
+        if(this.value.length < 2) { sRes.style.display='none'; return; }
+        fetch('?route=search_api&q=' + encodeURIComponent(this.value)).then(res => res.json()).then(data => {
+            sRes.innerHTML = '';
+            if(data.length === 0) sRes.innerHTML = '<div style="padding:10px; color:#888;">Nichts gefunden.</div>';
+            else {
+                data.forEach(item => {
+                    let url='#', icon='🔹';
+                    if(item.type==='customer') { url='?route=customer_view&id='+item.id; icon='🏢'; }
+                    if(item.type==='system') { url='?route=system_edit&id='+item.id; icon='💻'; }
+                    if(item.type==='task') { url='?route=task_edit&id='+item.id; icon='✅'; }
+                    sRes.innerHTML += `<a href="${url}" class="search-item"><span style="font-size:1.2em;">${icon}</span><div><strong>${item.title}</strong><small>${item.info||''}</small></div></a>`;
+                });
+            }
+            sRes.style.display = 'block';
+        });
+    });
+    document.addEventListener('click', function(e) { if (e.target !== sInput && e.target !== sRes) sRes.style.display = 'none'; });
+}
+</script>
 </body>
 </html>
